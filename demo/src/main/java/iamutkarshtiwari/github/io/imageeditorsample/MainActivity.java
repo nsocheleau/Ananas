@@ -1,13 +1,11 @@
 package iamutkarshtiwari.github.io.imageeditorsample;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.Build;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -16,24 +14,27 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import iamutkarshtiwari.github.io.ananas.BaseActivity;
 import iamutkarshtiwari.github.io.ananas.editimage.EditImageActivity;
 import iamutkarshtiwari.github.io.ananas.editimage.ImageEditorIntentBuilder;
-import iamutkarshtiwari.github.io.ananas.editimage.utils.BitmapUtils;
-import iamutkarshtiwari.github.io.imageeditorsample.imagepicker.activity.ImagePickerActivity;
 import iamutkarshtiwari.github.io.imageeditorsample.imagepicker.utils.FileUtilsKt;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
-import iamutkarshtiwari.github.io.imageeditorsample.R;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     public static final int REQUEST_PERMISSION_STORAGE = 1;
@@ -49,7 +50,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private final CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     ActivityResultLauncher<Intent> editResultLauncher;
-    ActivityResultLauncher<Intent> pickResultLauncher;
+
+    ActivityResultLauncher<PickVisualMediaRequest> pickVisualMedia;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -60,14 +62,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void setupActivityResultLaunchers() {
-        pickResultLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == Activity.RESULT_OK) {
-                        Intent data = result.getData();
-                        handleSelectFromAlbum(data);
-                    }
-                });
         editResultLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -76,6 +70,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         handleEditorImage(data);
                     }
                 });
+        pickVisualMedia = registerForActivityResult(
+                new ActivityResultContracts.PickVisualMedia(),
+                this::copyImageToCache);
     }
 
     @Override
@@ -135,31 +132,54 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void selectFromAlbum() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            openAlbumWithPermissionsCheck();
-        } else {
-            openAlbum();
-        }
-    }
-
-    private void openAlbum() {
-        Intent intent = new Intent(this, ImagePickerActivity.class);
-        pickResultLauncher.launch(intent);
-    }
-
-    private void openAlbumWithPermissionsCheck() {
-        if (ActivityCompat.checkSelfPermission(this, getMediaPermission())
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{getMediaPermission()},
-                    REQUEST_PERMISSION_STORAGE);
-            return;
-        }
         openAlbum();
     }
 
-    private String getMediaPermission() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ? Manifest.permission.READ_EXTERNAL_STORAGE : Manifest.permission.READ_MEDIA_IMAGES;
+    private void openAlbum() {
+        pickVisualMedia.launch(new PickVisualMediaRequest.Builder().setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE).build());
+    }
+
+    private void copyImageToCache(Uri imageUri) {
+        // Use an ExecutorService for background work
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            try {
+                // 1. Get an InputStream from the URI
+                InputStream inputStream = getContentResolver().openInputStream(imageUri);
+                if (inputStream == null) {
+                    return;
+                }
+
+                // 2. Create the destination file in cachesDir
+                File cacheDir = getCacheDir();
+                File destFile = new File(cacheDir, "picked_image_" + System.currentTimeMillis() + ".jpg");
+
+                // 3. Copy the data from the input stream to the output stream
+                OutputStream outputStream = new FileOutputStream(destFile);
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, read);
+                }
+
+                // 4. Close the streams
+                inputStream.close();
+                outputStream.close();
+
+                // At this point, destFile contains a copy of the image.
+                // You can now use destFile.getAbsolutePath() or similar.
+                // Run UI updates on the main thread
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Image copied to cache: " + destFile.getName(), Toast.LENGTH_LONG).show();
+                    // Load Image and set path for Edit Image button
+                    path = destFile.getAbsolutePath();
+                    loadImage(path);
+                });
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private void handleEditorImage(Intent data) {
@@ -173,11 +193,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         loadImage(newFilePath);
-    }
-
-    private void handleSelectFromAlbum(Intent data) {
-        path = data.getStringExtra(ImagePickerActivity.BUNDLE_EXTRA_IMAGE_PATH);
-        loadImage(path);
     }
 
     private void loadImage(String imagePath) {

@@ -32,4 +32,6 @@ dependencies {
     androidTestImplementation "androidx.test:runner:1.5.2"
     androidTestImplementation "androidx.test.espresso:espresso-core:${espresso_version}"
     implementation project(':ananas')
+    // Android Photo Picker
+    implementation("androidx.activity:activity:${activityVersion}")
 }
