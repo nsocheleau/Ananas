@@ -106,9 +106,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void editImageClick() {
-        File outputFile = FileUtilsKt.generateEditFile();
+//        File outputFile = FileUtilsKt.generateEditFile();
         try {
-            Intent intent = new ImageEditorIntentBuilder(this, path, outputFile.getAbsolutePath())
+            Intent intent = new ImageEditorIntentBuilder(this, path, path) // Test same sourcePath and outputPath
                     .withAddText()
                     .withPaintFeature()
                     .withFilterFeature()
@@ -140,6 +140,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void copyImageToCache(Uri imageUri) {
+        if (imageUri == null) return; // No image was chosen
         // Use an ExecutorService for background work
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.execute(() -> {
@@ -150,9 +151,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     return;
                 }
 
-                // 2. Create the destination file in cachesDir
+                // 2. Create the destination file in cachesDir or filesDir
                 File cacheDir = getCacheDir();
-                File destFile = new File(cacheDir, "picked_image_" + System.currentTimeMillis() + ".jpg");
+                File filesDir = getFilesDir();
+                File destFile = new File(filesDir, "picked_image_" + System.currentTimeMillis() + ".jpg");
 
                 // 3. Copy the data from the input stream to the output stream
                 OutputStream outputStream = new FileOutputStream(destFile);
