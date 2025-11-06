@@ -19,7 +19,7 @@ android {
         externalNativeBuild {
             ndkBuild {
                 cFlags "-DANDROID_NDK -DDISABLE_IMPORTGL -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
-                abiFilters 'arm64-v8a', 'armeabi-v7a', 'riscv64', 'x86', 'x86_64'
+                abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
             }
         }
     }
