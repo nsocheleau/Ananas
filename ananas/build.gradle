@@ -13,8 +13,8 @@ android {
     defaultConfig {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.3.1"
+        versionCode 4
+        versionName "1.3.2"
         // This block is different from the one you use to link Gradle to your ndk-build script.
         externalNativeBuild {
             ndkBuild {
@@ -81,7 +81,7 @@ publishing {
         ananas(MavenPublication) {
             groupId 'com.github.nsocheleau'
             artifactId 'ananas'
-            version '1.3.1'
+            version '1.3.2'
             artifact(sourceJar)
             artifact("$buildDir/outputs/aar/ananas-release.aar")
             pom.withXml {
